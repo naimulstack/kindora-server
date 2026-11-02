@@ -2,6 +2,7 @@ import express from "express";
 import { MongoClient } from 'mongodb';
 import 'dotenv/config'
 import cors from "cors";
+import { ObjectId } from "mongodb";
 
 
 const app = express();
@@ -39,6 +40,21 @@ app.post("/create-event", async (req, res) => {
 
 app.get("/events", async (req, res) => {
     const result = await eventsCollection.find({}).toArray();
+    res.send(result);
+});
+
+
+app.get("/events/:id", async (req, res) => {
+    const { id } = req.params;
+    const result = await eventsCollection.findOne({
+        _id: new ObjectId(id)
+    });
+
+    if (!result) {
+        return res.status(404).send({
+            message: "Event not found"
+        });
+    }
     res.send(result);
 });
 
