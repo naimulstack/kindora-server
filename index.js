@@ -43,7 +43,7 @@ app.get("/events", async (req, res) => {
     res.send(result);
 });
 
-
+// Event card details page
 app.get("/events/:id", async (req, res) => {
     const { id } = req.params;
     const result = await eventsCollection.findOne({
@@ -58,6 +58,23 @@ app.get("/events/:id", async (req, res) => {
     res.send(result);
 });
 
+// Edit event details page
+app.patch("/events/:id", async (req, res) => {
+    const { id } = req.params;
+    const updatedData = req.body;
+    const result = await eventsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData }
+    );
+    res.send(result);
+});
+
+// Delete event
+app.delete("/events/:id", async (req, res) => {
+    const { id } = req.params;
+    const result = await eventsCollection.deleteOne({_id: new ObjectId(id)});
+    res.json(result);
+});
 
 app.get("/", (req, res) => {
   res.send({message: "Server is running successfully"});
