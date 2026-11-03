@@ -144,9 +144,22 @@ app.get('/homepage-event', async (req, res) => {
         .sort({ date: 1 })
         .limit(6)
         .toArray();
+    res.send(result);
+});
+
+// past events for homepage
+app.get('/past-events', async (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    const result = await eventsCollection
+        .find({ date: { $lt: today } })
+        .sort({ date: -1 })
+        .limit(6)
+        .toArray();
 
     res.send(result);
 });
+
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
