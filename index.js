@@ -115,12 +115,23 @@ app.get('/joinevent/check', async (req, res) => {
     res.json({ joined: !!existing });
 });
 
+// joined event
 app.get('/joined-events/:email', async (req, res) => {
     const { email } = req.params;
-    if (!email || email === "undefined") {
-        return res.json([]);
-    }
+
     const result = await joinEventCollection.find({ email }).toArray();
+
+    res.send(result);
+});
+
+// manage event
+app.get('/events/organizer/:email', async (req, res) => {
+    const { email } = req.params;
+
+    const result = await eventsCollection.find({
+        organizerEmail: email
+    }).toArray();
+
     res.send(result);
 });
 
