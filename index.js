@@ -1,9 +1,7 @@
 import express from "express";
-import { MongoClient } from 'mongodb';
-import 'dotenv/config'
+import { MongoClient, ObjectId } from 'mongodb';
+import 'dotenv/config';
 import cors from "cors";
-import { ObjectId } from "mongodb";
-
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,75 +11,119 @@ app.use(express.json());
 
 const client = new MongoClient(process.env.MONGODB_URI);
 
-export async function connectToMongoDB() {
-  try {
+async function connectToMongoDB() {
     await client.connect();
     console.log("You successfully connected to MongoDB!");
     return client;
-  } catch (err) {
-    console.dir(err);
-  }
 }
 
 const mongoClient = await connectToMongoDB();
 
 const db = mongoClient.db("kindora");
 const eventsCollection = db.collection("events");
+const joinEventCollection = db.collection("joinevent");
 
-// http://localhost:5000/create-event
+app.get("/", (req, res) => {
+    res.send({ message: "Server is running successfully" });
+});
+
+// create event
 app.post("/create-event", async (req, res) => {
-    const data = req.body;
-    const result = await eventsCollection.insertOne(data);
-    console.log(result);
-    res.send(result);
-})
+    try {
+        const { _id, ...data } = req.body;
+        const result = await eventsCollection.insertOne(data);
+        res.status(201).send(result);
+    } catch {
+        res.status(500).send({ message: "Failed to create event" });
+    }
+});
 
-// http://localhost:5000/events
-
+// get event
 app.get("/events", async (req, res) => {
     const result = await eventsCollection.find({}).toArray();
     res.send(result);
 });
 
-// Event card details page
+// create event id
 app.get("/events/:id", async (req, res) => {
     const { id } = req.params;
-    const result = await eventsCollection.findOne({
-        _id: new ObjectId(id)
-    });
-
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: "Invalid Event ID format" });
+    }
+    const result = await eventsCollection.findOne({ _id: new ObjectId(id) });
     if (!result) {
-        return res.status(404).send({
-            message: "Event not found"
-        });
+        return res.status(404).send({ message: "Event not found" });
     }
     res.send(result);
 });
 
 // Edit event details page
 app.patch("/events/:id", async (req, res) => {
-    const { id } = req.params;
-    const updatedData = req.body;
-    const result = await eventsCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: updatedData }
-    );
+    try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send({ message: "Invalid Event ID format" });
+        }
+        const { _id, ...updatedData } = req.body;
+        const result = await eventsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updatedData }
+        );
+        res.send(result);
+    } catch {
+        res.status(500).send({ message: "Failed to update event" });
+    }
+});
+
+// Delete event details page
+app.delete("/events/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send({ message: "Invalid Event ID format" });
+        }
+        const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
+        res.json(result);
+    } catch {
+        res.status(500).send({ message: "Failed to delete event" });
+    }
+});
+
+// join event
+app.post('/joinevent', async (req, res) => {
+    const { eventId, email, title, type, date, location, image, description, organizerEmail } = req.body;
+    const existing = await joinEventCollection.findOne({ eventId, email });
+    if (existing) {
+        return res.status(409).json({ message: "Already joined" });
+    }
+    const result = await joinEventCollection.insertOne({
+        eventId, email, title, type, date, location, image, description, organizerEmail
+    });
     res.send(result);
 });
 
-// Delete event
-app.delete("/events/:id", async (req, res) => {
-    const { id } = req.params;
-    const result = await eventsCollection.deleteOne({_id: new ObjectId(id)});
+// delete join event
+app.delete('/joinevent', async (req, res) => {
+    const { eventId, email } = req.body;
+    const result = await joinEventCollection.deleteOne({ eventId, email });
     res.json(result);
 });
 
-app.get("/", (req, res) => {
-  res.send({message: "Server is running successfully"});
+app.get('/joinevent/check', async (req, res) => {
+    const { eventId, email } = req.query;
+    const existing = await joinEventCollection.findOne({ eventId, email });
+    res.json({ joined: !!existing });
 });
 
+app.get('/joined-events/:email', async (req, res) => {
+    const { email } = req.params;
+    if (!email || email === "undefined") {
+        return res.json([]);
+    }
+    const result = await joinEventCollection.find({ email }).toArray();
+    res.send(result);
+});
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-})
-
+    console.log(`Server is running on port ${PORT}`);
+});
