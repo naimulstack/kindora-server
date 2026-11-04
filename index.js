@@ -24,6 +24,7 @@ const eventsCollection = db.collection("events");
 const joinEventCollection = db.collection("joinevent");
 const userCollection = db.collection("user");
 const galleryCollection = db.collection("gallery");
+const messagesCollection = db.collection("messages");
 
 app.get("/", (req, res) => {
   res.send({ message: "Server is running successfully" });
@@ -224,6 +225,12 @@ app.post("/gallery", async (req, res) => {
 });
 
 
+// Contact us message
+app.post("/messages", async (req, res) => {
+    const message = req.body;
+    const result = await messagesCollection.insertOne(message);
+    res.send(result);
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
