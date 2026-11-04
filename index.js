@@ -23,6 +23,7 @@ const db = mongoClient.db("kindora");
 const eventsCollection = db.collection("events");
 const joinEventCollection = db.collection("joinevent");
 const userCollection = db.collection("user");
+const galleryCollection = db.collection("gallery");
 
 app.get("/", (req, res) => {
   res.send({ message: "Server is running successfully" });
@@ -137,9 +138,7 @@ app.get("/joinevent/check", async (req, res) => {
 // joined event
 app.get("/joined-events/:email", async (req, res) => {
   const { email } = req.params;
-
   const result = await joinEventCollection.find({ email }).toArray();
-
   res.send(result);
 });
 
@@ -181,34 +180,50 @@ app.get("/past-events", async (req, res) => {
 });
 
 // Top volunteers
-app.get('/top-volunteers', async (req, res) => {
-    const result = await joinEventCollection.aggregate([
-        {
-            $group: {
-                _id: "$email",
-                eventsJoined: { $sum: 1 }
-            }
+app.get("/top-volunteers", async (req, res) => {
+  const result = await joinEventCollection
+    .aggregate([
+      {
+        $group: {
+          _id: "$email",
+          eventsJoined: { $sum: 1 },
         },
-        { $sort: { eventsJoined: -1 } },
-        { $limit: 4 }
-    ]).toArray();
+      },
+      { $sort: { eventsJoined: -1 } },
+      { $limit: 4 },
+    ])
+    .toArray();
 
-    const volunteers = await Promise.all(
-        result.map(async (person) => {
-            const user = await userCollection.findOne(
-                { email: person._id },
-                { projection: { name: 1, image: 1 } }
-            );
-            return {
-                email: person._id,
-                name: user?.name,
-                image: user?.image,
-                eventsJoined: person.eventsJoined
-            };
-        })
-    );
-    res.send(volunteers);
+  const volunteers = await Promise.all(
+    result.map(async (person) => {
+      const user = await userCollection.findOne(
+        { email: person._id },
+        { projection: { name: 1, image: 1 } },
+      );
+      return {
+        email: person._id,
+        name: user?.name,
+        image: user?.image,
+        eventsJoined: person.eventsJoined,
+      };
+    }),
+  );
+  res.send(volunteers);
 });
+
+// Gallery page
+app.get("/gallery", async (req, res) => {
+  const result = await galleryCollection.find({}).toArray();
+  res.send(result);
+});
+
+app.post("/gallery", async (req, res) => {
+  const data = req.body;
+  const result = await galleryCollection.insertOne(data);
+  res.send(result);
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
