@@ -2,6 +2,7 @@ import express from "express";
 import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
 import cors from "cors";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,14 +26,36 @@ const joinEventCollection = db.collection("joinevent");
 const userCollection = db.collection("user");
 const galleryCollection = db.collection("gallery");
 const messagesCollection = db.collection("messages");
-const successStoriesCollection = db.collection('successStories');
+const successStoriesCollection = db.collection("successStories");
+
+const APIverify = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).send({ mas: "Unauthorized" });
+  }
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ mas: "Unauthorized" });
+  }
+
+  const JWKS = createRemoteJWKSet(
+    new URL("http://localhost:3000/api/auth/jwks"),
+  );
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    next();
+  } catch (error) {
+    return res.status(500).send({ mas: "Server Error" });
+  }
+};
 
 app.get("/", (req, res) => {
   res.send({ message: "Server is running successfully" });
 });
 
 // create event
-app.post("/create-event", async (req, res) => {
+app.post("/create-event", APIverify, async (req, res) => {
   try {
     const { _id, ...data } = req.body;
     const result = await eventsCollection.insertOne(data);
@@ -48,8 +71,8 @@ app.get("/events", async (req, res) => {
   res.send(result);
 });
 
-// create event id
-app.get("/events/:id", async (req, res) => {
+// event details
+app.get("/events/:id", APIverify, async (req, res) => {
   const { id } = req.params;
   if (!ObjectId.isValid(id)) {
     return res.status(400).send({ message: "Invalid Event ID format" });
@@ -62,7 +85,7 @@ app.get("/events/:id", async (req, res) => {
 });
 
 // Edit event details page
-app.patch("/events/:id", async (req, res) => {
+app.patch("/events/:id",APIverify, async (req, res) => {
   try {
     const { id } = req.params;
     if (!ObjectId.isValid(id)) {
@@ -80,7 +103,7 @@ app.patch("/events/:id", async (req, res) => {
 });
 
 // Delete event details page
-app.delete("/events/:id", async (req, res) => {
+app.delete("/events/:id",APIverify, async (req, res) => {
   try {
     const { id } = req.params;
     if (!ObjectId.isValid(id)) {
@@ -138,7 +161,7 @@ app.get("/joinevent/check", async (req, res) => {
 });
 
 // joined event
-app.get("/joined-events/:email", async (req, res) => {
+app.get("/joined-events/:email",APIverify, async (req, res) => {
   const { email } = req.params;
   const result = await joinEventCollection.find({ email }).toArray();
   res.send(result);
@@ -225,22 +248,21 @@ app.post("/gallery", async (req, res) => {
   res.send(result);
 });
 
-
 // Contact us message
 app.post("/messages", async (req, res) => {
-    const message = req.body;
-    const result = await messagesCollection.insertOne(message);
-    res.send(result);
+  const message = req.body;
+  const result = await messagesCollection.insertOne(message);
+  res.send(result);
 });
 
 // success stories
-app.get('/success-stories', async (req, res) => {
-    const result = await successStoriesCollection.find().toArray();
-    res.send(result);
+app.get("/success-stories", async (req, res) => {
+  const result = await successStoriesCollection.find().toArray();
+  res.send(result);
 });
-
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+export default app;
